@@ -1,0 +1,765 @@
+---
+title: "IDS_HW3_NY"
+author: "Navya Yadagiri"
+date: "3/17/2022"
+output: html_document
+---
+
+
+#Installing the necessary packages
+```{r}
+#install.packages("lubridate")
+library(lubridate)
+library(skimr)
+library(dplyr)
+#library(devtools)
+library(tidyverse)
+library(psych)
+#ools::install_github("ropensci/visdat")
+library(visdat)
+library("funModeling")
+library("Hmisc")
+library("rpart")
+library("caret")
+library("rpart.plot")
+```
+
+
+#Basic EDA
+```{r}
+
+original_dataset <- readxl::read_excel("Scholastic Travel.xlsx", sheet = "Exhibit 1 -- Data");
+colsNumerical <- c("Days","Tuition","FRP.Active","FRP.Cancelled","FRP.Take.up.percent.","Cancelled.Pax","Total.Discount.Pax","Total.School.Enrollment","EZ.Pay.Take.Up.Rate","FPP","Total.Pax","SPR.Group.Revenue","NumberOfMeetingswithParents","DifferenceTraveltoFirstMeeting","DifferenceTraveltoLastMeeting","FPP.to.School.enrollment","FPP.to.PAX","Num.of.Non_FPP.PAX")
+
+#There are 18 numerical 
+length(colsNumerical)
+
+colsCategorical <- c("Program.Code","From.Grade","To.Grade","Group.State","Is.Non.Annual.","Travel.Type","Special.Pay","Poverty.Code","Region","CRM.Segment","School.Type","Parent.Meeting.Flag","MDR.Low.Grade","MDR.High.Grade","Income.Level","School.Sponsor","SPR.Product.Type","SPR.New.Existing","SchoolGradeTypeLow","SchoolGradeTypeHigh","SchoolGradeType","DepartureMonth","GroupGradeTypeLow","GroupGradeTypeHigh","GroupGradeType","MajorProgramCode","SingleGradeTripFlag","SchoolSizeIndicator","Retained.in.2012.")
+
+length(colsCategorical)
+
+dataset <- data.frame(original_dataset)
+dataset[colsNumerical] <- lapply(original_dataset[colsNumerical], as.numeric)
+
+glimpse(dataset)
+
+colnames(dataset)
+
+levels(dataset$Retained.in.2012.)
+#Replacing the NA with the mean in numerical variables
+numerical_columns <- c(7,13,14,15,16,19,20,29,31,35,36,37,38,41,42,52,53,54)
+length(numerical_columns)
+
+for(i in numerical_columns)
+  dataset[,i][is.na(dataset[,i])] <- mean(dataset[,i],na.rm = T)
+
+sum(is.na(dataset[numerical_columns]))
+
+#Replacing the NA Values for factor columns 
+
+#Finding the mode of the factor columns 
+getmode <- function(v){
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v,uniqv)))]
+}
+
+glimpse(dataset)
+
+
+#Replacing the NA in From.Grade 
+
+#From.Grade
+dataset$From.Grade <- as.numeric(dataset$From.Grade)
+
+dataset$From.Grade[is.na(dataset$From.Grade)] <- getmode(dataset$From.Grade)
+
+dataset$From.Grade <- as.factor(dataset$From.Grade)
+
+#To.Grade
+dataset$To.Grade <- as.numeric(dataset$To.Grade)
+
+dataset$To.Grade[is.na(dataset$To.Grade)] <- getmode(dataset$To.Grade)
+
+dataset$To.Grade <- as.factor(dataset$To.Grade)
+
+
+#Income level
+dataset$Income.Level <- as.numeric(dataset$Income.Level)
+
+dataset$Income.Level[is.na(dataset$Income.Level)] <- getmode(dataset$Income.Level)
+
+dataset$Income.Level <- as.factor(dataset$Income.Level)
+
+
+#MDR.High.Grade
+dataset$MDR.High.Grade <- as.numeric(dataset$MDR.High.Grade)
+
+dataset$MDR.High.Grade[is.na(dataset$MDR.High.Grade)] <- getmode(dataset$MDR.High.Grade)
+
+dataset$MDR.High.Grade <- as.factor(dataset$MDR.High.Grade)
+
+
+dataset$MDR.Low.Grade <- as.numeric(dataset$MDR.Low.Grade)
+
+dataset$MDR.Low.Grade[is.na(dataset$MDR.Low.Grade)] <- getmode(dataset$MDR.Low.Grade)
+
+dataset$MDR.Low.Grade <- as.factor(dataset$MDR.Low.Grade)
+
+sum(is.na(dataset$MDR.Low.Grade))
+
+dataset$Poverty.Code <- as.numeric(dataset$Poverty.Code)
+
+dataset$Poverty.Code[is.na(dataset$Poverty.Code)] <- getmode(dataset$Poverty.Code)
+
+dataset$Poverty.Code <- as.factor(dataset$Poverty.Code)
+
+sum(is.na(dataset$Poverty.Code))
+##SchoolGradeTypeLow
+dataset$SchoolGradeTypeLow <- as.numeric(dataset$SchoolGradeTypeLow)
+dataset$SchoolGradeTypeLow[is.na(dataset$SchoolGradeTypeLow)] <- getmode(dataset$SchoolGradeTypeLow)
+dataset$SchoolGradeTypeLow <- as.factor(dataset$SchoolGradeTypeLow)
+
+#SchoolGradeTypeHigh
+dataset$SchoolGradeTypeHigh <- as.numeric(dataset$SchoolGradeTypeHigh)
+dataset$SchoolGradeTypeHigh[is.na(dataset$SchoolGradeTypeHigh)] <- getmode(dataset$SchoolGradeTypeHigh)
+dataset$SchoolGradeTypeHigh <- as.factor(dataset$SchoolGradeTypeHigh)
+
+#SchoolGradeType
+dataset$SchoolGradeType <- as.numeric(dataset$SchoolGradeType)
+dataset$SchoolGradeType[is.na(dataset$SchoolGradeType)] <- getmode(dataset$SchoolGradeType)
+dataset$SchoolGradeType <- as.factor(dataset$SchoolGradeType)
+
+#DepartureMonth
+dataset$DepartureMonth <- as.numeric(dataset$DepartureMonth)
+dataset$DepartureMonth[is.na(dataset$DepartureMonth)] <- getmode(dataset$DepartureMonth)
+dataset$DepartureMonth <- as.factor(dataset$DepartureMonth)
+
+
+#GroupGradeTypeLow
+dataset$GroupGradeTypeLow <- as.numeric(dataset$GroupGradeTypeLow)
+dataset$GroupGradeTypeLow[is.na(dataset$GroupGradeTypeLow)] <- getmode(dataset$GroupGradeTypeLow)
+dataset$GroupGradeTypeLow <- as.factor(dataset$GroupGradeTypeLow)
+
+
+dataset$GroupGradeTypeHigh <- as.numeric(dataset$GroupGradeTypeHigh)
+dataset$GroupGradeTypeHigh[is.na(dataset$GroupGradeTypeHigh)] <- getmode(dataset$GroupGradeTypeHigh)
+dataset$GroupGradeTypeHigh <- as.factor(dataset$GroupGradeTypeHigh)
+
+dataset$GroupGradeType <- as.numeric(dataset$GroupGradeType)
+dataset$GroupGradeType[is.na(dataset$GroupGradeType)] <- getmode(dataset$GroupGradeType)
+dataset$GroupGradeType <- as.factor(dataset$GroupGradeType)
+
+dataset$MajorProgramCode <- as.numeric(dataset$MajorProgramCode)
+dataset$MajorProgramCode[is.na(dataset$MajorProgramCode)] <- getmode(dataset$MajorProgramCode)
+dataset$MajorProgramCode <- as.factor(dataset$MajorProgramCode)
+
+dataset$SingleGradeTripFlag <- as.numeric(dataset$SingleGradeTripFlag)
+dataset$SingleGradeTripFlag[is.na(dataset$SingleGradeTripFlag)] <- getmode(dataset$SingleGradeTripFlag)
+dataset$SingleGradeTripFlag <- as.factor(dataset$SingleGradeTripFlag)
+
+dataset$SchoolSizeIndicator <- as.numeric(dataset$SchoolSizeIndicator)
+dataset$SchoolSizeIndicator[is.na(dataset$SchoolSizeIndicator)] <- getmode(dataset$SchoolSizeIndicator)
+dataset$SchoolSizeIndicator <- as.factor(dataset$SchoolSizeIndicator)
+
+
+dataset$Departure.Date <- as.Date(dataset$Departure.Date)
+
+dataset$Return.Date <- as.Date(dataset$Return.Date)
+
+dataset$Deposit.Date <- as.Date(dataset$Deposit.Date)
+
+#Changing the date columns to date
+dataset$Initial.System.Date <- as.numeric(dataset$Initial.System.Date )
+dataset$Initial.System.Date <- as.Date(dataset$Initial.System.Date, origin = "1899-12-30")
+
+dataset$Latest.RPL <- as.numeric(dataset$Latest.RPL)
+dataset$Latest.RPL <- as.Date(dataset$Latest.RPL, origin = "1899-12-30")
+
+dataset$FirstMeeting <- as.numeric(dataset$FirstMeeting)
+dataset$FirstMeeting <- as.Date(dataset$FirstMeeting, origin = "1899-12-30")
+
+dataset$LastMeeting <- as.numeric(dataset$LastMeeting)
+dataset$LastMeeting <- as.Date(dataset$LastMeeting, origin = "1899-12-30")
+
+
+#We will not consider the date columns for any models construction, since we have another Departure Month column that 
+#gives the information regarding that.
+
+```
+
+##Chi-Square Test - for all variables
+## If  if the p-value is below your threshold of significance (typically p < 0.05), you can reject the null hypothesis
+
+## A p-value higher than 0.05 (> 0.05) is not statistically significant and indicates strong evidence for the null hypothesis. This means we retain the null hypothesis and reject the alternative hypothesis. 
+```{r}
+
+### Chi-square for all variables
+{r}
+chisq.test(dataset$Program.Code, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+
+chisq.test(dataset$From.Grade, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+
+chisq.test(dataset$To.Grade, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Group.State, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Is.Non.Annual., dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Days, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Travel.Type, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Departure.Date, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Return.Date, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 so significant accept Null hypothesis
+
+chisq.test(dataset$Deposit.Date, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Tuition, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$FRP.Active, dataset$Retained.in.2012., correct = FALSE) #p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$FRP.Cancelled, dataset$Retained.in.2012., correct = FALSE)#Not Significant -  strong evidence for null hypothesis no association 
+
+chisq.test(dataset$FRP.Take.up.percent., dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Early.RPL, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Latest.RPL, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+chisq.test(dataset$Cancelled.Pax, dataset$Retained.in.2012., correct = FALSE)#Not Significant -  strong evidence for null hypothesis no association
+
+chisq.test(dataset$Total.Discount.Pax, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Initial.System.Date, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Poverty.Code, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Region, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$CRM.Segment, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$School.Type, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Parent.Meeting.Flag, dataset$Retained.in.2012., correct = FALSE)#Not Significant - strong evidence for null hypothesis no association 
+
+chisq.test(dataset$MDR.Low.Grade, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$MDR.High.Grade, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Total.School.Enrollment, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Income.Level, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$EZ.Pay.Take.Up.Rate, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$School.Sponsor, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$SPR.Product.Type, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$SPR.New.Existing, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 so significant accept Null hypothesis
+
+chisq.test(dataset$FPP, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 so significant accept Null hypothesis
+
+chisq.test(dataset$Total.Pax, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 so significant accept Null hypothesis
+
+chisq.test(dataset$SPR.Group.Revenue, dataset$Retained.in.2012., correct = FALSE)#Not Significant Accept Null Hypothesis
+
+chisq.test(dataset$NumberOfMeetingswithParents, dataset$Retained.in.2012., correct = FALSE)#Not Significant, Accept Null Hypothesis
+
+chisq.test(dataset$FirstMeeting, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$LastMeeting, dataset$Retained.in.2012., correct = FALSE)##p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$DifferenceTraveltoFirstMeeting, dataset$Retained.in.2012., correct = FALSE)#Not Significant
+
+chisq.test(dataset$DifferenceTraveltoLastMeeting, dataset$Retained.in.2012., correct = FALSE) #Not Significant
+
+chisq.test(dataset$SchoolGradeTypeLow, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$SchoolGradeTypeHigh, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$SchoolGradeType, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$DepartureMonth, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+
+chisq.test(dataset$GroupGradeTypeLow, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+
+chisq.test(dataset$GroupGradeTypeHigh, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+
+chisq.test(dataset$GroupGradeType, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$MajorProgramCode, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$SingleGradeTripFlag, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$FPP.to.School.enrollment, dataset$Retained.in.2012., correct = FALSE)# Accept Null hypothesis
+
+chisq.test(dataset$FPP.to.PAX, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+chisq.test(dataset$Num.of.Non_FPP.PAX, dataset$Retained.in.2012., correct = FALSE)#p-value is less than 0.05 reject null hypothesis
+
+```
+
+#Decision Tree
+```{r}
+
+sum(is.na(dataset))
+dataset_WithNONA <- subset(dataset, select = -c(1,9,10,11,12,17,18,21,39,40))
+
+
+sum(is.na(dataset_WithNONA))
+set.seed(134)
+indx <- sample(2, nrow(dataset_WithNONA), replace = TRUE, prob = c(0.8,0.2))
+train <- dataset_WithNONA[indx == 1, ]
+test <- dataset_WithNONA[indx == 2, ]
+
+#Ratio of the train and test data size
+nrow(train)/nrow(test) #-> 1925/464
+
+#Formula to construct the decision tree
+
+
+#dataset_WithNONA$Group.State +
+
+
+myFormula = dataset_WithNONA$Retained.in.2012. ~ dataset_WithNONA$Program.Code +
+dataset_WithNONA$From.Grade +
+dataset_WithNONA$To.Grade +
+dataset_WithNONA$Is.Non.Annual. +
+dataset_WithNONA$Days +
+dataset_WithNONA$Travel.Type +
+dataset_WithNONA$Tuition +
+dataset_WithNONA$FRP.Active +
+dataset_WithNONA$FRP.Cancelled +
+dataset_WithNONA$FRP.Take.up.percent. +
+dataset_WithNONA$Cancelled.Pax +
+dataset_WithNONA$Total.Discount.Pax +
+dataset_WithNONA$Poverty.Code +
+dataset_WithNONA$Region +
+dataset_WithNONA$CRM.Segment +
+dataset_WithNONA$School.Type +
+dataset_WithNONA$Parent.Meeting.Flag +
+dataset_WithNONA$MDR.Low.Grade +
+dataset_WithNONA$MDR.High.Grade +
+dataset_WithNONA$Total.School.Enrollment +
+dataset_WithNONA$Income.Level +
+dataset_WithNONA$EZ.Pay.Take.Up.Rate +
+dataset_WithNONA$School.Sponsor +
+dataset_WithNONA$SPR.Product.Type +
+dataset_WithNONA$SPR.New.Existing +
+dataset_WithNONA$FPP +
+dataset_WithNONA$Total.Pax +
+dataset_WithNONA$SPR.Group.Revenue +
+dataset_WithNONA$NumberOfMeetingswithParents +
+dataset_WithNONA$DifferenceTraveltoFirstMeeting +
+dataset_WithNONA$DifferenceTraveltoLastMeeting +
+dataset_WithNONA$SchoolGradeTypeLow +
+dataset_WithNONA$SchoolGradeTypeHigh +
+dataset_WithNONA$SchoolGradeType +
+dataset_WithNONA$DepartureMonth +
+dataset_WithNONA$GroupGradeTypeLow +
+dataset_WithNONA$GroupGradeTypeHigh +
+dataset_WithNONA$GroupGradeType +
+dataset_WithNONA$MajorProgramCode +
+dataset_WithNONA$SingleGradeTripFlag +
+dataset_WithNONA$FPP.to.School.enrollment +
+dataset_WithNONA$FPP.to.PAX +
+dataset_WithNONA$Num.of.Non_FPP.PAX +
+dataset_WithNONA$SchoolSizeIndicator
+
+
+myForumla1 = dataset_WithNONA$Retained.in.2012. ~.
+
+#Constructing the tree:
+mytree <-rpart(myFormula, data = train, method = 'class')
+
+print(mytree)
+
+#The percentage of number of Retained is greater than the number of people not retained
+prop.table(table(dataset_WithNONA$Retained.in.2012.))
+
+rpart.plot(mytree)
+
+#Constructing the entire decision tree
+
+tree_model2 <- rpart(myFormula, train, parms = list(split = "information"), control = rpart.control(minbucket = 0,minsplit = 0,cp = -1))
+
+#As we can see the entire tree does not give us a full information, lets tune the hyper parameters in the rpart.control
+rpart.plot(tree_model2)
+
+
+#Examining the complexity of the plot
+
+printcp(tree_model2)
+
+#As we can see the root node train error is 0.39 ~ 40%
+
+
+#As we can see the if the cp value is 0.00923952, we are getting an xerror of 0.53305
+
+tree_model3 <- rpart(myFormula, train, method = "class", parms = list(split = "information"), control = rpart.control(minsplit = 3,cp = 0.01))
+
+tree_model2 <- rpart(myFormula, train, parms = list(split = "information"), control = rpart.control(minbucket = 5,minsplit = 50,cp = 0.00923952))
+rpart.plot(tree_model2)
+
+print(tree_model3)
+
+#Train Error:
+predTrain1 <- predict(mytree, data = train, type = "class")
+trainError <- mean(train$Retained.in.2012. != predTrain1)
+
+
+library(caret)
+confusionMatrix(predTrain1, train$Retained.in.2012.)
+trainError
+
+
+#TestError:
+
+predTest <- predict(tree_model3, newdata = test, type='class')
+testError <- mean(test$Retained.in.2012. == predTest)
+
+testError
+
+modelKPI <- function(actualValues, predictedValues)
+{ 
+  funcMatrix <- table(actual = actualValues, pred = predictedValues)          
+  print(funcMatrix) 
+  TN <- funcMatrix[1,1] 
+  FP <- funcMatrix[1,2] 
+  FN <- funcMatrix[2,1] 
+  TP <- funcMatrix[2,2] 
+  Sensitivity <- TP/(TP + FN)       
+  Specificity <- TN/(TN + FP) 
+  Precision <- TP/(TP + FP) 
+  print(paste("Sensitivity = ", round(Sensitivity, 4)))         
+  print(paste("Specificity = ", round(Specificity, 4))) 
+  print(paste("Precision = ", round(Precision, 4))) 
+}
+
+length(test$Retained.in.2012.)
+length(predTest)
+
+modelKPI(test$Retained.in.2012.,predTest)
+
+```
+
+#### Random Forest
+```{r}
+library(randomForest)
+
+
+
+ind <- sample(2,nrow(dataset_WithNONA), replace = T,prob = c(0.7,0.3))
+Train <- dataset_WithNONA[ind == 1, ]
+Validation <- dataset_WithNONA[ind == 2, ]
+
+pr.err <-c()
+ntree <- 100
+
+for(mt in seq(1,5)){
+  rf <- randomForest(myFormula, data = Train, ntree = ntree,
+                      mtry = mt)
+  predicted <- predict(rf, newdata = Validation, type = "class")
+  pr.err <- c(pr.err,mean(Validation$spam != predicted)) 
+}
+
+rf
+
+rf$promixity
+
+bestmtry <- which.min(pr.err)
+
+
+rf <- randomForest(myFormula, dataset_WithNONA,mtry = bestmtry, ntree = ntree)
+
+print(rf)
+
+rf$err.rate[ntree,1]
+
+sort(importance(rf, type = 2)[,"MeanDecreaseGini"], decreasing = T)
+varImpPlot(rf)
+
+CM <- table(rf$predicted,dataset_WithNONA$Retained.in.2012. , dnn = c("predicted","actual"))
+
+error_metric=function(CM)
+{
+  TN =CM[1,1]
+  TP =CM[2,2]
+  FN =CM[1,2]
+  FP =CM[2,1]
+  recall = (TP)/(TP+FN)
+  precision =(TP)/(TP+FP)
+  falsePositiveRate = (FP)/(FP+TN)
+  falseNegativeRate = (FN)/(FN+TP)
+  error =(FP+FN)/(TP+TN+FP+FN)
+  modelPerf <- my_list <- list("precision" = precision, "recall" = recall, "falsepositiverate" = falsePositiveRate, "falsenegativerate" = falseNegativeRate, "error" = error)
+  return(modelPerf)
+}
+
+l <- error_metric(CM)
+
+library(plyr)
+
+df <- ldply(l, data.frame)
+setNames(df, c("", "Values"))
+
+df
+
+
+library(stats)
+#Changing the names of the columns in the data frame 
+#The recall is 89% 
+setNames(df,c("","Values"))
+
+
+library(ROCR)
+
+
+rf
+
+
+pred<-prediction(rf$votes[,2],dataset_WithNONA$Retained.in.2012.)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf) 
+
+opt.cut <- function(perf){
+  cut.ind <- mapply(FUN = function(x,y,p){d=(x-0)^2+(y-1)^2 
+  ind<- which(d==min(d)) 
+  c(recall = y[[ind]], specificity = 1-x[[ind]],cutoff = p[[ind]])}, 
+  perf@x.values, perf@y.values,perf@alpha.values)
+}
+Output <- opt.cut(perf)
+print(Output[,1])
+
+predicted <- as.factor(ifelse(rf$votes[,2] >= Output[,1]["cutoff"],1,0))
+CM1 <- table(predicted,dataset_WithNONA$Retained.in.2012., dnn = c("predicted","actual"))
+
+CM1
+```
+
+
+#### RandomForest 2
+```{r}
+library(randomForest)
+ntree <- 100
+
+
+
+colsCategorical <- c("Program.Code","From.Grade","To.Grade","Group.State","Is.Non.Annual.","Travel.Type","Poverty.Code","Region","CRM.Segment","School.Type","Parent.Meeting.Flag","MDR.Low.Grade","MDR.High.Grade","Income.Level","School.Sponsor","SPR.Product.Type","SPR.New.Existing","SchoolGradeTypeLow","SchoolGradeTypeHigh","SchoolGradeType","DepartureMonth","GroupGradeTypeLow","GroupGradeTypeHigh","GroupGradeType","MajorProgramCode","SingleGradeTripFlag","SchoolSizeIndicator","Retained.in.2012.")
+
+dataset_WithNONA[colsCategorical] <- lapply(dataset_WithNONA[colsCategorical], as.numeric)
+
+replace <- subset(original_dataset, select = -c(1,9,10,11,12,17,18,21,39,40))
+replace <- subset(replace,select= -c(43,44))
+replace <- subset(replace,select= -c(42,43))
+
+replace <- subset(replace,select= -c(42))
+glimpse(original_dataset)
+
+replace <- original_dataset
+
+ncol(original_dataset)
+
+myFormula = replace$Retained.in.2012. ~ replace$Program.Code +
+replace$From.Grade +
+replace$To.Grade +
+replace$Is.Non.Annual. +
+replace$Days +
+replace$Travel.Type +
+replace$Tuition +
+replace$FRP.Active +
+replace$FRP.Cancelled +
+replace$FRP.Take.up.percent. +
+replace$Cancelled.Pax +
+replace$Total.Discount.Pax +
+replace$Poverty.Code +
+replace$Region +
+replace$CRM.Segment +
+replace$School.Type +
+replace$Parent.Meeting.Flag +
+replace$MDR.Low.Grade +
+replace$MDR.High.Grade +
+replace$Total.School.Enrollment +
+replace$Income.Level +
+replace$EZ.Pay.Take.Up.Rate +
+replace$School.Sponsor +
+replace$SPR.Product.Type +
+replace$SPR.New.Existing +
+replace$FPP +
+replace$Total.Pax +
+replace$SPR.Group.Revenue +
+replace$NumberOfMeetingswithParents +
+replace$DifferenceTraveltoFirstMeeting +
+replace$DifferenceTraveltoLastMeeting +
+replace$SchoolGradeTypeLow +
+replace$SchoolGradeTypeHigh +
+replace$SchoolGradeType +
+replace$DepartureMonth +
+replace$GroupGradeTypeLow +
+replace$GroupGradeTypeHigh +
+replace$GroupGradeType +
+replace$MajorProgramCode +
+replace$SingleGradeTripFlag +
+replace$SchoolSizeIndicator
+
+
+Data <- replace[sample(nrow(replace)),]
+#dataset_WithNONA$Num.of.Non_FPP.PAX +
+
+rf <- randomForest(myFormula, data= Data, ntree = ntree, mtry= sqrt(ncol(Data)-1), proximity = T, importance = T)
+print(rf)
+
+rf$proximity
+rf$importance
+importance(rf, type = 1)
+importance(rf, type = 2)
+varImpPlot(rf)
+
+rf$err.rate[ntree,1]
+rf$predicted
+
+# Confusion matrix
+CM <- table(rf$predicted, Data$Retained.in.2012., dnn = c("Predicted", "Actual"))
+CM
+library(caret)
+confusionMatrix(rf$predicted, Data$Retained.in.2012., positive = "Retained")
+
+# Drawing evaluation charts
+library(ROCR)
+pred <- prediction(rf$votes[, 2], Data$Retained.in.2012.)
+
+# Gain Chart
+perf <- performance(pred, "tpr", "rpp")
+plot(perf)
+
+# Response Chart
+perf <- performance(pred, "ppv", "rpp")
+plot(perf)
+
+# Lift Chart 
+perf <- performance(pred, "lift", "rpp")
+plot(perf)
+
+# ROC Curve
+perf <- performance(pred, "tpr", "fpr")
+plot(perf)
+
+# auc
+auc <- performance(pred, "auc")
+auc
+auc <- unlist(slot(auc, "y.values"))
+auc
+
+# Identifying the best value of mtry using validation set
+indx <- sample(2, nrow(Data), replace = T, prob= c(0.7,0.3))
+Train <- Data[indx == 1,]
+Validation <- Data[indx == 2, ]
+ 
+pr.err <- c()
+for(mt in seq(1, ncol(Data)-1))
+{
+  rf <- randomForest(myFormula, data = Train, ntree = 100, mtry = mt)
+  pred <- predict(rf, newdata = Validation, type = "class")
+  pr.err<- c(pr.err, mean(pred != Validation$Retained.in.2012.))
+}
+
+
+rf <- randomForest(myFormula, data = Train, ntree = 100, mtry = 34)
+pred <- predict(rf, newdata = Validation, type = "class")
+pr.err<- c(pr.err, mean(pred != Validation$Retained.in.2012.))
+ncol(Data)
+
+rf <- randomForest(myFormula, data = Train, ntree = 100, mtry = mt)
+pred <- predict(rf, newdata = Validation, type = "class")
+pr.err<- c(pr.err, mean(pred != Validation$Retained.in.2012.))
+
+
+bestmtry <- which.min(pr.err)
+
+# Writing our own function
+myAverage <- function(CM)
+{
+  Mymean <- sum(x)/length(x)
+  return(Mymean)
+}
+
+x<- 1:20
+myAverage(x)
+```
+
+
+
+
+
+
+##Cross Validation
+```{r}
+
+library(plyr)
+library(PRROC)
+#install.packages("PRROC")
+
+
+k<-10
+fold_indices<-rep(1:k , each =nrow(dataset)/k)
+
+view(dataset_WithNONA)
+dataset<- dataset_WithNONA %>% mutate(rand=runif(n=15134))
+dataset <- dataset %>%arrange(rand)
+dataset<-dataset %>% select(-rand)
+
+fold_indices<-rep(1:k, each=nrow(dataset)/k)
+Results<-data.frame(fold=as.numeric(),
+                    threshold=as.numeric(),
+                    recall=as.numeric(),
+                    precision=as.numeric(),
+                    accuracy=as.numeric(),
+                    auc_roc_test=as.numeric(),
+                    auc_pr_test=as.numeric())
+
+
+  
+
+train_control <- trainControl(method = "cv",
+                              number = 10)
+folds <- split(data, cut(sample(1:nrow(data)),10))
+i=1
+for (i in 1:length(folds)) {
+  
+  test <- ldply(folds[i], data.frame)
+  train <- ldply(folds[-i], data.frame)
+  classifier_A=glm(formula = OUTCOME~ .,dataset,family=binomial())
+  train_pred<-classifier_A$fitted.values
+  test_pred<-predict(classifier_A,newdata = test,type = "response")
+}
+nmethod <- 1
+folds <- split(dataset, cut(sample(1:nrow(dataset)),10))
+ 
+
+model<-glm(OUTCOME~., data=train,family="binomial")
+train_k_predictions <-model$fitted.values
+
+
+prcurve<-pr.curve(scores.class0 =test_pred,
+                  weights.class0=test$OUTCOME,curve=T)
+plot(prcurve)
+Roc_Curve<-roc(test$OUTCOME,test_pred)
+threshold<-as.numeric(coords(roc,"best",ret="threshold"))
+
+pred_Funct<-ifelse(test_pred>=threshold,1,0)
+confusionMatrix<-table(Actual=test$OUTCOME,Pred=pred_Funct)
+recall<-confusionMatrix[2,2]/(confusionMatrix[2,2]+confusionMatrix[2,1])
+precision<-confusionMatrix[2,2]/(confusionMatrix[2,2] +confusionMatrix[1,2])
+accuracy<-sum(binarypred==test$OUTCOME)/nrow(test)
+
+print(paste('Accuracy of logistic Regression:',accuracy*100))
+print(paste('Recall of logistic rgression :',recall))
+
+```
+
